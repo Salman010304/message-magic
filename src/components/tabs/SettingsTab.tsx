@@ -15,17 +15,21 @@ export function SettingsTab() {
     loans,
     addLoan,
     deleteLoan,
+    setLoans,
     creditCards,
     addCreditCard,
     updateCreditCard,
     deleteCreditCard,
-    reminderMsg,
-    setReminderMsg,
+    setCreditCards,
     transactions,
+    setTransactions,
     students,
+    setStudents,
     expenseCategories,
     addExpenseCategory,
-    removeExpenseCategory
+    removeExpenseCategory,
+    reminderMsg,
+    setReminderMsg
   } = useApp();
   
   const [showLoanForm, setShowLoanForm] = useState(false);
@@ -96,22 +100,51 @@ export function SettingsTab() {
     toast({ title: 'Backup Downloaded' });
   };
   
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const data = JSON.parse(event.target?.result as string);
-        // Would need to implement proper import logic
-        toast({ title: 'Import Complete', description: 'Data has been imported.' });
-      } catch {
-        toast({ title: 'Import Failed', description: 'Invalid file format.', variant: 'destructive' });
+const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    try {
+      const raw = event.target?.result as string;
+      const data = JSON.parse(raw || '{}');
+
+      if (!data || typeof data !== 'object') {
+        throw new Error('Invalid backup structure');
       }
-    };
-    reader.readAsText(file);
+
+      const {
+        transactions: importedTransactions,
+        students: importedStudents,
+        loans: importedLoans,
+        creditCards: importedCreditCards
+      } = data as any;
+
+      if (Array.isArray(importedTransactions)) {
+        setTransactions(importedTransactions);
+      }
+      if (Array.isArray(importedStudents)) {
+        setStudents(importedStudents);
+      }
+      if (Array.isArray(importedLoans)) {
+        setLoans(importedLoans);
+      }
+      if (Array.isArray(importedCreditCards)) {
+        setCreditCards(importedCreditCards);
+      }
+
+      toast({ title: 'Import Complete', description: 'Backup has been imported.' });
+    } catch (error) {
+      console.error('Backup import failed', error);
+      toast({ title: 'Import Failed', description: 'Invalid file format.', variant: 'destructive' });
+    } finally {
+      // allow re-importing the same file if needed
+      e.target.value = '';
+    }
   };
+  reader.readAsText(file);
+};
   
   const saveReminderMessage = () => {
     toast({ title: 'Template Saved', description: 'Reminder message template has been updated.' });
