@@ -15,8 +15,11 @@ export function AddTransactionTab() {
     expenseCategories,
     students,
     loans,
+    creditCards,
     addTransaction,
     updateTransaction,
+    updateLoan,
+    updateCreditCard,
     editingTransaction,
     setEditingTransaction,
     setActiveTab
@@ -33,6 +36,7 @@ export function AddTransactionTab() {
   const [studentName, setStudentName] = useState('');
   const [feeMonth, setFeeMonth] = useState('');
   const [selectedLoanId, setSelectedLoanId] = useState('');
+  const [selectedCardId, setSelectedCardId] = useState('');
   
   // Populate form when editing
   useEffect(() => {
@@ -57,6 +61,7 @@ export function AddTransactionTab() {
     setStudentName('');
     setFeeMonth('');
     setSelectedLoanId('');
+    setSelectedCardId('');
     setDate(new Date().toISOString().split('T')[0]);
     setEditingTransaction(null);
   };
@@ -81,12 +86,17 @@ export function AddTransactionTab() {
     }
     
     const isTuition = category === 'Tuition Fees' && type === 'income';
+    const isLoanPayment = category === 'Loan/EMI' && selectedLoanId;
+    const isCreditCardPayment = category === 'Credit Card' && selectedCardId;
     
     let finalDescription = description;
     if (isTuition) {
       finalDescription = `Tuition: ${studentName} (${feeMonth})`;
     } else if (type === 'transfer') {
       finalDescription = `Transfer: ${paymentMethod} → ${transferTo}`;
+    } else if (isCreditCardPayment) {
+      const card = creditCards.find(c => c.id === selectedCardId);
+      finalDescription = `Credit Card Payment: ${card?.name || 'Unknown'}`;
     }
     
     const txData = {
@@ -102,8 +112,25 @@ export function AddTransactionTab() {
       date,
       dateStr: new Date(date).toLocaleDateString(),
       createdAt: new Date().toISOString(),
-      loanId: category === 'Loan/EMI' && selectedLoanId ? selectedLoanId : null
+      loanId: isLoanPayment ? selectedLoanId : null,
+      creditCardId: isCreditCardPayment ? selectedCardId : null
     };
+    
+    // Update loan paid amount
+    if (isLoanPayment && !editingTransaction) {
+      const loan = loans.find(l => l.id === selectedLoanId);
+      if (loan) {
+        updateLoan(selectedLoanId, { paid: loan.paid + parseFloat(amount) });
+      }
+    }
+    
+    // Update credit card used amount (reduce it when payment is made)
+    if (isCreditCardPayment && !editingTransaction) {
+      const card = creditCards.find(c => c.id === selectedCardId);
+      if (card) {
+        updateCreditCard(selectedCardId, { used: Math.max(0, card.used - parseFloat(amount)) });
+      }
+    }
     
     if (editingTransaction) {
       updateTransaction(editingTransaction.id, txData);
@@ -241,6 +268,30 @@ export function AddTransactionTab() {
                   </Select>
                 </div>
               )}
+              
+              {/* Credit Card Selector */}
+              {category === 'Credit Card' && (
+                <div className="p-4 bg-expense/10 rounded-xl border border-expense/20 animate-fade-in">
+                  <Label className="text-expense">Select Credit Card</Label>
+                  <Select value={selectedCardId} onValueChange={setSelectedCardId}>
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Select card to pay" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {creditCards.map(card => (
+                        <SelectItem key={card.id} value={card.id}>
+                          {card.name} (Used: ₹{card.used.toLocaleString('en-IN')})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedCardId && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Payment will reduce the outstanding balance
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
           
@@ -333,7 +384,7 @@ export function AddTransactionTab() {
           </div>
           
           {/* Description (for non-tuition) */}
-          {!(type === 'income' && category === 'Tuition Fees') && type !== 'transfer' && (
+          {!(type === 'income' && category === 'Tuition Fees') && type !== 'transfer' && category !== 'Credit Card' && (
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
               <Input

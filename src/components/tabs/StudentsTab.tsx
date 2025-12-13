@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { format } from 'date-fns';
 import { useApp } from '@/context/AppContext';
 import { getStudentFinancials } from '@/hooks/useStudentFinancials';
 import { StudentCard } from '@/components/StudentCard';
@@ -7,7 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { STANDARDS, MEDIUMS, BOARDS, MONTHS } from '@/lib/constants';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { STANDARDS, MEDIUMS, BOARDS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 
@@ -34,8 +37,8 @@ export function StudentsTab() {
   const [medium, setMedium] = useState(MEDIUMS[0]);
   const [board, setBoard] = useState(BOARDS[0]);
   const [monthlyFee, setMonthlyFee] = useState('');
-  const [joinDate, setJoinDate] = useState('');
-  const [leaveDate, setLeaveDate] = useState('');
+  const [joinDate, setJoinDate] = useState<Date | undefined>(undefined);
+  const [leaveDate, setLeaveDate] = useState<Date | undefined>(undefined);
   
   // Populate form when editing
   React.useEffect(() => {
@@ -48,8 +51,8 @@ export function StudentsTab() {
       setMedium(editingStudent.medium || MEDIUMS[0]);
       setBoard(editingStudent.board || BOARDS[0]);
       setMonthlyFee(editingStudent.monthlyFee.toString());
-      setJoinDate(editingStudent.joinDate);
-      setLeaveDate(editingStudent.leaveDate || '');
+      setJoinDate(editingStudent.joinDate ? new Date(editingStudent.joinDate) : undefined);
+      setLeaveDate(editingStudent.leaveDate ? new Date(editingStudent.leaveDate) : undefined);
     }
   }, [editingStudent]);
   
@@ -62,8 +65,8 @@ export function StudentsTab() {
     setMedium(MEDIUMS[0]);
     setBoard(BOARDS[0]);
     setMonthlyFee('');
-    setJoinDate('');
-    setLeaveDate('');
+    setJoinDate(undefined);
+    setLeaveDate(undefined);
     setEditingStudent(null);
   };
   
@@ -89,8 +92,8 @@ export function StudentsTab() {
       medium,
       board,
       monthlyFee: parseFloat(monthlyFee),
-      joinDate,
-      leaveDate: leaveDate || null,
+      joinDate: format(joinDate, 'yyyy-MM-dd'),
+      leaveDate: leaveDate ? format(leaveDate, 'yyyy-MM-dd') : null,
       active: !leaveDate
     };
     
@@ -348,42 +351,78 @@ export function StudentsTab() {
                 </div>
               </div>
               
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-2">
-                  <Label htmlFor="fee">Monthly Fee *</Label>
-                  <Input
-                    id="fee"
-                    type="number"
-                    value={monthlyFee}
-                    onChange={(e) => setMonthlyFee(e.target.value)}
-                    placeholder="₹0"
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="joinDate">Join Date *</Label>
-                  <Input
-                    id="joinDate"
-                    type="date"
-                    value={joinDate}
-                    onChange={(e) => setJoinDate(e.target.value)}
-                    required
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="fee">Monthly Fee *</Label>
+                <Input
+                  id="fee"
+                  type="number"
+                  value={monthlyFee}
+                  onChange={(e) => setMonthlyFee(e.target.value)}
+                  placeholder="₹0"
+                  required
+                />
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="leaveDate" className="text-destructive">
+                <Label>Join Date *</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        'w-full justify-start text-left font-normal',
+                        !joinDate && 'text-muted-foreground'
+                      )}
+                    >
+                      <Icons.Calendar className="mr-2 h-4 w-4" />
+                      {joinDate ? format(joinDate, 'PPP') : 'Select join date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={joinDate}
+                      onSelect={setJoinDate}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+                {joinDate && joinDate.getDate() > 1 && (
+                  <p className="text-xs text-muted-foreground">
+                    Pro-rata fee will be calculated for {format(joinDate, 'MMMM')}
+                  </p>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-destructive">
                   Leave Date (if applicable)
                 </Label>
-                <Input
-                  id="leaveDate"
-                  type="date"
-                  value={leaveDate}
-                  onChange={(e) => setLeaveDate(e.target.value)}
-                  className="border-destructive/30 focus:border-destructive"
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        'w-full justify-start text-left font-normal border-destructive/30',
+                        !leaveDate && 'text-muted-foreground'
+                      )}
+                    >
+                      <Icons.Calendar className="mr-2 h-4 w-4" />
+                      {leaveDate ? format(leaveDate, 'PPP') : 'Select leave date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={leaveDate}
+                      onSelect={setLeaveDate}
+                      disabled={(date) => joinDate ? date < joinDate : false}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
               
               <div className="flex gap-2 pt-2">

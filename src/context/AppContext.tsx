@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
-import { Student, Transaction, Loan, ExpenseCategory, TabType } from '@/types';
+import { Student, Transaction, Loan, CreditCard, ExpenseCategory, TabType } from '@/types';
 import { DEFAULT_CATEGORIES, DEFAULT_REMINDER_MSG, ACCOUNTS } from '@/lib/constants';
 
 interface AppState {
@@ -7,6 +7,7 @@ interface AppState {
   transactions: Transaction[];
   students: Student[];
   loans: Loan[];
+  creditCards: CreditCard[];
   openingBalances: Record<string, number>;
   expenseCategories: ExpenseCategory[];
   reminderMsg: string;
@@ -17,6 +18,7 @@ interface AppState {
   viewingStudent: Student | null;
   editingStudent: Student | null;
   editingTransaction: Transaction | null;
+  historyAccountFilter: string;
   
   // Message Modal
   messageModal: {
@@ -43,6 +45,11 @@ interface AppContextType extends AppState {
   updateLoan: (id: string, updates: Partial<Loan>) => void;
   deleteLoan: (id: string) => void;
   
+  setCreditCards: (cards: CreditCard[] | ((prev: CreditCard[]) => CreditCard[])) => void;
+  addCreditCard: (card: CreditCard) => void;
+  updateCreditCard: (id: string, updates: Partial<CreditCard>) => void;
+  deleteCreditCard: (id: string) => void;
+  
   setOpeningBalances: (balances: Record<string, number>) => void;
   updateOpeningBalance: (account: string, amount: number) => void;
   
@@ -58,6 +65,7 @@ interface AppContextType extends AppState {
   setViewingStudent: (student: Student | null) => void;
   setEditingStudent: (student: Student | null) => void;
   setEditingTransaction: (transaction: Transaction | null) => void;
+  setHistoryAccountFilter: (account: string) => void;
   
   // Message Modal
   openMessageModal: (text: string, phone: string) => void;
@@ -100,6 +108,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch { return []; }
   });
   
+  const [creditCards, setCreditCardsState] = useState<CreditCard[]>(() => {
+    try {
+      const saved = localStorage.getItem('nurani_credit_cards');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  
   const [openingBalances, setOpeningBalancesState] = useState<Record<string, number>>(() => {
     try {
       const saved = localStorage.getItem('nurani_opening_balances');
@@ -127,6 +142,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [messageModal, setMessageModal] = useState({ open: false, text: '', phone: '' });
+  const [historyAccountFilter, setHistoryAccountFilter] = useState<string>('all');
   
   // Persist to localStorage
   useEffect(() => {
@@ -140,6 +156,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     localStorage.setItem('nurani_loans', JSON.stringify(loans));
   }, [loans]);
+  
+  useEffect(() => {
+    localStorage.setItem('nurani_credit_cards', JSON.stringify(creditCards));
+  }, [creditCards]);
   
   useEffect(() => {
     localStorage.setItem('nurani_opening_balances', JSON.stringify(openingBalances));
@@ -206,6 +226,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   
   const deleteLoan = useCallback((id: string) => {
     setLoansState(prev => prev.filter(l => l.id !== id));
+  }, []);
+  
+  // Credit Cards
+  const setCreditCards = useCallback((value: CreditCard[] | ((prev: CreditCard[]) => CreditCard[])) => {
+    setCreditCardsState(value);
+  }, []);
+  
+  const addCreditCard = useCallback((card: CreditCard) => {
+    setCreditCardsState(prev => [...prev, card]);
+  }, []);
+  
+  const updateCreditCard = useCallback((id: string, updates: Partial<CreditCard>) => {
+    setCreditCardsState(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
+  }, []);
+  
+  const deleteCreditCard = useCallback((id: string) => {
+    setCreditCardsState(prev => prev.filter(c => c.id !== id));
   }, []);
   
   // Opening Balances
@@ -290,6 +327,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     transactions,
     students,
     loans,
+    creditCards,
     openingBalances,
     expenseCategories,
     reminderMsg,
@@ -299,6 +337,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     editingStudent,
     editingTransaction,
     messageModal,
+    historyAccountFilter,
     
     setTransactions,
     addTransaction,
@@ -315,6 +354,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     updateLoan,
     deleteLoan,
     
+    setCreditCards,
+    addCreditCard,
+    updateCreditCard,
+    deleteCreditCard,
+    
     setOpeningBalances,
     updateOpeningBalance,
     
@@ -329,6 +373,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setViewingStudent,
     setEditingStudent,
     setEditingTransaction,
+    setHistoryAccountFilter,
     
     openMessageModal,
     closeMessageModal,
