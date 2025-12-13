@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '@/context/AppContext';
+import { useAuth } from '@/context/AuthContext';
 import { getStudentFinancials } from '@/hooks/useStudentFinancials';
 import { BalanceCard } from '@/components/BalanceCard';
 import { DonutChart } from '@/components/DonutChart';
@@ -22,10 +23,15 @@ export function DashboardTab() {
     setHistoryAccountFilter
   } = useApp();
   
+  const { user } = useAuth();
+  
   const [chartView, setChartView] = useState<'overview' | 'income' | 'expense'>('overview');
   const [showAllTransactions, setShowAllTransactions] = useState(false);
   const [showLoanDetails, setShowLoanDetails] = useState(false);
   const [showCreditCardDetails, setShowCreditCardDetails] = useState(false);
+  
+  // Get user display name
+  const userName = user?.displayName || user?.email?.split('@')[0] || 'User';
   
   // Calculate totals
   const totalLoanPending = useMemo(() => {
@@ -115,9 +121,53 @@ export function DashboardTab() {
   
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Welcome Banner */}
+      <div className="bg-gradient-to-r from-primary/20 via-accent/10 to-primary/5 p-6 rounded-2xl border border-primary/20">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 bg-gradient-to-br from-primary to-accent rounded-2xl flex items-center justify-center shadow-glow">
+            <Icons.Wallet className="w-7 h-7 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">
+              Welcome, <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">{userName}</span>!
+            </h1>
+            <p className="text-muted-foreground text-sm">
+              Track your earnings & expenses • {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </p>
+          </div>
+        </div>
+        
+        {/* Quick Stats */}
+        <div className="grid grid-cols-3 gap-4 mt-5">
+          <div className="text-center p-3 rounded-xl bg-income/10 border border-income/20">
+            <p className="text-xs text-income font-bold uppercase mb-1">Income</p>
+            <p className="text-lg font-bold text-income">₹{summary.income.toLocaleString('en-IN')}</p>
+          </div>
+          <div className="text-center p-3 rounded-xl bg-expense/10 border border-expense/20">
+            <p className="text-xs text-expense font-bold uppercase mb-1">Expense</p>
+            <p className="text-lg font-bold text-expense">₹{summary.expense.toLocaleString('en-IN')}</p>
+          </div>
+          <div className={cn(
+            "text-center p-3 rounded-xl border",
+            summary.balance >= 0 
+              ? "bg-income/10 border-income/20" 
+              : "bg-expense/10 border-expense/20"
+          )}>
+            <p className={cn(
+              "text-xs font-bold uppercase mb-1",
+              summary.balance >= 0 ? "text-income" : "text-expense"
+            )}>Balance</p>
+            <p className={cn(
+              "text-lg font-bold",
+              summary.balance >= 0 ? "text-income" : "text-expense"
+            )}>₹{summary.balance.toLocaleString('en-IN')}</p>
+          </div>
+        </div>
+      </div>
+      
       {/* Loan Liability Card */}
       {totalLoanPending > 0 && (
-        <div 
+        <div
           onClick={() => setShowLoanDetails(!showLoanDetails)}
           className="cursor-pointer"
         >
