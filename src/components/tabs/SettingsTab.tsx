@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
 import { ACCOUNTS, DEFAULT_REMINDER_MSG } from '@/lib/constants';
 import { toast } from '@/hooks/use-toast';
 
@@ -16,6 +15,10 @@ export function SettingsTab() {
     loans,
     addLoan,
     deleteLoan,
+    creditCards,
+    addCreditCard,
+    updateCreditCard,
+    deleteCreditCard,
     reminderMsg,
     setReminderMsg,
     transactions,
@@ -27,6 +30,8 @@ export function SettingsTab() {
   
   const [showLoanForm, setShowLoanForm] = useState(false);
   const [newLoan, setNewLoan] = useState({ name: '', total: '', emi: '' });
+  const [showCardForm, setShowCardForm] = useState(false);
+  const [newCard, setNewCard] = useState({ name: '', limit: '' });
   const [newCategory, setNewCategory] = useState('');
   
   const handleAddLoan = () => {
@@ -52,6 +57,28 @@ export function SettingsTab() {
     }
   };
   
+  const handleAddCard = () => {
+    if (!newCard.name || !newCard.limit) return;
+    
+    addCreditCard({
+      id: Date.now().toString(),
+      name: newCard.name,
+      limit: parseFloat(newCard.limit),
+      used: 0
+    });
+    
+    setNewCard({ name: '', limit: '' });
+    setShowCardForm(false);
+    toast({ title: 'Credit Card Added', description: 'New credit card has been recorded.' });
+  };
+  
+  const handleDeleteCard = (id: string) => {
+    if (confirm('Delete this credit card?')) {
+      deleteCreditCard(id);
+      toast({ title: 'Credit Card Deleted', description: 'Credit card has been removed.' });
+    }
+  };
+  
   const handleAddCategory = () => {
     if (!newCategory.trim()) return;
     addExpenseCategory({ name: newCategory.trim(), icon: '✨' });
@@ -60,7 +87,7 @@ export function SettingsTab() {
   };
   
   const handleExport = () => {
-    const data = JSON.stringify({ transactions, students }, null, 2);
+    const data = JSON.stringify({ transactions, students, loans, creditCards }, null, 2);
     const blob = new Blob([data], { type: 'application/json' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -127,11 +154,84 @@ export function SettingsTab() {
         </div>
       </div>
       
-      {/* Loans Management */}
+      {/* Credit Cards Management */}
       <div className="bg-card p-6 rounded-2xl border border-border shadow-card">
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-bold text-lg text-foreground flex items-center gap-2">
             <Icons.CreditCard className="w-5 h-5 text-primary" />
+            Credit Cards
+          </h3>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowCardForm(!showCardForm)}
+          >
+            <Icons.Plus className="w-4 h-4 mr-1" />
+            Add Card
+          </Button>
+        </div>
+        
+        {showCardForm && (
+          <div className="p-4 bg-accent rounded-xl mb-4 animate-fade-in">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div className="space-y-2">
+                <Label>Card Name</Label>
+                <Input
+                  value={newCard.name}
+                  onChange={(e) => setNewCard({ ...newCard, name: e.target.value })}
+                  placeholder="e.g., HDFC Credit Card"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Credit Limit</Label>
+                <Input
+                  type="number"
+                  value={newCard.limit}
+                  onChange={(e) => setNewCard({ ...newCard, limit: e.target.value })}
+                  placeholder="₹0"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleAddCard}>Add Card</Button>
+              <Button variant="outline" onClick={() => setShowCardForm(false)}>Cancel</Button>
+            </div>
+          </div>
+        )}
+        
+        {creditCards.length === 0 ? (
+          <p className="text-muted-foreground text-center py-6">No credit cards added yet</p>
+        ) : (
+          <div className="space-y-2">
+            {creditCards.map(card => (
+              <div key={card.id} className="flex justify-between items-center p-4 bg-accent rounded-xl">
+                <div>
+                  <p className="font-bold text-foreground">{card.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Limit: ₹{card.limit.toLocaleString('en-IN')} | 
+                    Used: ₹{card.used.toLocaleString('en-IN')} | 
+                    Available: ₹{(card.limit - card.used).toLocaleString('en-IN')}
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive"
+                  onClick={() => handleDeleteCard(card.id)}
+                >
+                  <Icons.Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      
+      {/* Loans Management */}
+      <div className="bg-card p-6 rounded-2xl border border-border shadow-card">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="font-bold text-lg text-foreground flex items-center gap-2">
+            <Icons.Building2 className="w-5 h-5 text-primary" />
             Loans / EMIs
           </h3>
           <Button

@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 import { TransactionItem } from '@/components/TransactionItem';
 import { Icons } from '@/components/Icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ACCOUNTS } from '@/lib/constants';
 
 export function HistoryTab() {
   const {
@@ -12,11 +13,25 @@ export function HistoryTab() {
     students,
     deleteTransaction,
     setEditingTransaction,
-    setActiveTab
+    setActiveTab,
+    historyAccountFilter,
+    setHistoryAccountFilter
   } = useApp();
   
   const [dateFilter, setDateFilter] = useState({ start: '', end: '' });
   const [studentFilter, setStudentFilter] = useState('all');
+  const [accountFilter, setAccountFilter] = useState(historyAccountFilter);
+  
+  // Sync with global account filter from dashboard
+  useEffect(() => {
+    setAccountFilter(historyAccountFilter);
+  }, [historyAccountFilter]);
+  
+  // Update global filter when local changes
+  const handleAccountFilterChange = (value: string) => {
+    setAccountFilter(value);
+    setHistoryAccountFilter(value);
+  };
   
   // Filtered transactions
   const filteredTransactions = useMemo(() => {
@@ -39,8 +54,34 @@ export function HistoryTab() {
       filtered = filtered.filter(t => t.studentName === studentFilter);
     }
     
+    // Account filter
+    if (accountFilter !== 'all') {
+      if (accountFilter === 'cash') {
+        filtered = filtered.filter(t => 
+          t.paymentMethod.toLowerCase() === 'cash' || 
+          t.transferTo?.toLowerCase() === 'cash'
+        );
+      } else if (accountFilter === 'bank') {
+        filtered = filtered.filter(t => 
+          t.paymentMethod.toLowerCase().includes('bank') || 
+          t.transferTo?.toLowerCase().includes('bank')
+        );
+      } else if (accountFilter === 'credit') {
+        filtered = filtered.filter(t => 
+          t.paymentMethod.toLowerCase().includes('credit') || 
+          t.transferTo?.toLowerCase().includes('credit')
+        );
+      } else {
+        // Specific account name
+        filtered = filtered.filter(t => 
+          t.paymentMethod === accountFilter || 
+          t.transferTo === accountFilter
+        );
+      }
+    }
+    
     return filtered;
-  }, [transactions, dateFilter, studentFilter]);
+  }, [transactions, dateFilter, studentFilter, accountFilter]);
   
   // Summary for filtered transactions
   const summary = useMemo(() => {
@@ -101,9 +142,10 @@ export function HistoryTab() {
   const clearFilters = () => {
     setDateFilter({ start: '', end: '' });
     setStudentFilter('all');
+    handleAccountFilterChange('all');
   };
   
-  const hasFilters = dateFilter.start || dateFilter.end || studentFilter !== 'all';
+  const hasFilters = dateFilter.start || dateFilter.end || studentFilter !== 'all' || accountFilter !== 'all';
   
   return (
     <div className="space-y-6 animate-fade-in">
@@ -136,6 +178,21 @@ export function HistoryTab() {
                 <SelectItem value="all">All Students</SelectItem>
                 {uniqueStudents.map(name => (
                   <SelectItem key={name} value={name}>{name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            <Select value={accountFilter} onValueChange={handleAccountFilterChange}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="All Accounts" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Accounts</SelectItem>
+                <SelectItem value="cash">💵 Cash Only</SelectItem>
+                <SelectItem value="bank">🏦 Banks Only</SelectItem>
+                <SelectItem value="credit">💳 Credit Cards Only</SelectItem>
+                {ACCOUNTS.map(acc => (
+                  <SelectItem key={acc} value={acc}>{acc}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

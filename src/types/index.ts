@@ -37,6 +37,13 @@ export interface Loan {
   paid: number;
 }
 
+export interface CreditCard {
+  id: string;
+  name: string;
+  limit: number;
+  used: number;
+}
+
 export interface ExpenseCategory {
   name: string;
   icon: string;

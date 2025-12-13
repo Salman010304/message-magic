@@ -25,7 +25,8 @@ export const DEFAULT_CATEGORIES: ExpenseCategory[] = [
   { name: 'Travelling', icon: '🚲' },
   { name: 'Routine Exp', icon: '🔄' },
   { name: 'Family Exp', icon: '👨‍👩‍👧' },
-  { name: 'Loan/EMI', icon: '🏦' }
+  { name: 'Loan/EMI', icon: '🏦' },
+  { name: 'Credit Card', icon: '💳' }
 ];
 
 export const DEFAULT_REMINDER_MSG = `સલામ/નમસ્તે {parent},
