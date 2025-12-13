@@ -9,12 +9,11 @@ import { useToast } from '@/hooks/use-toast';
 import { GraduationCap, Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 const Auth = () => {
-  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp, signInWithGoogle } = useAuth();
+  const { signIn, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -30,30 +29,13 @@ const Auth = () => {
       return;
     }
 
-    if (password.length < 6) {
-      toast({
-        title: "Error",
-        description: "Password must be at least 6 characters",
-        variant: "destructive"
-      });
-      return;
-    }
-
     setLoading(true);
     try {
-      if (isLogin) {
-        await signIn(email, password);
-        toast({
-          title: "Welcome back!",
-          description: "Successfully logged in"
-        });
-      } else {
-        await signUp(email, password);
-        toast({
-          title: "Account created!",
-          description: "Welcome to Nurani Coaching Manager"
-        });
-      }
+      await signIn(email, password);
+      toast({
+        title: "Welcome back!",
+        description: "Successfully logged in"
+      });
       navigate('/');
     } catch (error: any) {
       let message = "An error occurred";
@@ -61,12 +43,8 @@ const Auth = () => {
         message = "No account found with this email";
       } else if (error.code === 'auth/wrong-password') {
         message = "Incorrect password";
-      } else if (error.code === 'auth/email-already-in-use') {
-        message = "Email already registered. Please login instead.";
       } else if (error.code === 'auth/invalid-email') {
         message = "Invalid email address";
-      } else if (error.code === 'auth/weak-password') {
-        message = "Password is too weak";
       } else if (error.code === 'auth/invalid-credential') {
         message = "Invalid email or password";
       }
@@ -118,7 +96,7 @@ const Auth = () => {
               Nurani Coaching
             </CardTitle>
             <CardDescription className="text-muted-foreground mt-2">
-              {isLogin ? 'Welcome back! Please sign in.' : 'Create your account to get started.'}
+              Welcome back! Please sign in to continue.
             </CardDescription>
           </div>
         </CardHeader>
@@ -172,7 +150,7 @@ const Auth = () => {
               {loading ? (
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
               ) : null}
-              {isLogin ? 'Sign In' : 'Create Account'}
+              Sign In
             </Button>
           </form>
 
@@ -212,17 +190,6 @@ const Auth = () => {
             </svg>
             Google
           </Button>
-
-          <div className="text-center">
-            <button
-              type="button"
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-sm text-primary hover:text-primary-light transition-colors"
-              disabled={loading}
-            >
-              {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
-            </button>
-          </div>
         </CardContent>
       </Card>
     </div>
