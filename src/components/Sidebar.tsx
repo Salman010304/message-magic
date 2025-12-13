@@ -1,8 +1,11 @@
 import React from 'react';
 import { useApp } from '@/context/AppContext';
+import { useAuth } from '@/context/AuthContext';
 import { TabType } from '@/types';
 import { Icons } from '@/components/Icons';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { LogOut } from 'lucide-react';
 
 const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <Icons.LayoutDashboard className="w-5 h-5" /> },
@@ -14,8 +17,17 @@ const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
 
 export function Sidebar() {
   const { activeTab, setActiveTab, summary } = useApp();
+  const { user, logout } = useAuth();
   
   const balanceColor = summary.balance >= 0 ? 'text-income' : 'text-expense';
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
   
   return (
     <aside className="hidden md:flex flex-col w-64 bg-card border-r border-border h-screen sticky top-0">
@@ -62,7 +74,7 @@ export function Sidebar() {
       </nav>
       
       {/* Footer */}
-      <div className="p-4 border-t border-border">
+      <div className="p-4 border-t border-border space-y-3">
         <div className="grid grid-cols-2 gap-2 text-center">
           <div className="bg-income/10 rounded-lg p-2">
             <p className="text-[10px] text-income font-bold uppercase">Income</p>
@@ -77,6 +89,22 @@ export function Sidebar() {
             </p>
           </div>
         </div>
+        
+        {/* User Info & Logout */}
+        {user && (
+          <div className="pt-2 border-t border-border">
+            <p className="text-xs text-muted-foreground truncate mb-2">{user.email}</p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={handleLogout}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
+          </div>
+        )}
       </div>
     </aside>
   );
