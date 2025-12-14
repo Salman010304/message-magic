@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
 import { Student, Transaction, Loan, CreditCard, ExpenseCategory, TabType } from '@/types';
 import { DEFAULT_CATEGORIES, DEFAULT_REMINDER_MSG, ACCOUNTS } from '@/lib/constants';
+import { useAuth } from '@/context/AuthContext';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 interface AppState {
   // Data
@@ -143,6 +146,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [messageModal, setMessageModal] = useState({ open: false, text: '', phone: '' });
   const [historyAccountFilter, setHistoryAccountFilter] = useState<string>('all');
+  const { user } = useAuth();
   
   // Persist to localStorage
   useEffect(() => {
@@ -172,6 +176,59 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     localStorage.setItem('nurani_reminder_msg', reminderMsg);
   }, [reminderMsg]);
+  
+  // Sync data from cloud when user logs in
+  useEffect(() => {
+    const loadCloudData = async () => {
+      if (!user) return;
+      try {
+        const ref = doc(db, 'users', user.uid);
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+          const data = snap.data() as any;
+          if (Array.isArray(data.transactions)) {
+            setTransactionsState(data.transactions);
+          }
+          if (Array.isArray(data.students)) {
+            setStudentsState(data.students);
+          }
+          if (Array.isArray(data.loans)) {
+            setLoansState(data.loans);
+          }
+          if (Array.isArray(data.creditCards)) {
+            setCreditCardsState(data.creditCards);
+          }
+          if (data.openingBalances && typeof data.openingBalances === 'object') {
+            setOpeningBalancesState(data.openingBalances as Record<string, number>);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load cloud data', error);
+      }
+    };
+    loadCloudData();
+  }, [user]);
+  
+  // Sync data to cloud whenever it changes
+  useEffect(() => {
+    if (!user) return;
+    const saveCloudData = async () => {
+      try {
+        const payload = {
+          transactions,
+          students,
+          loans,
+          creditCards,
+          openingBalances,
+          updatedAt: new Date().toISOString(),
+        };
+        await setDoc(doc(db, 'users', user.uid), payload, { merge: true });
+      } catch (error) {
+        console.error('Failed to save cloud data', error);
+      }
+    };
+    saveCloudData();
+  }, [user, transactions, students, loans, creditCards, openingBalances]);
   
   // Transactions
   const setTransactions = useCallback((value: Transaction[] | ((prev: Transaction[]) => Transaction[])) => {
@@ -318,7 +375,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     });
     
-    const balance = Object.values(balances).reduce((sum, val) => sum + val, 0);
+    const balance = Object.entries(balances)
+      .filter(([name]) => !name.toLowerCase().includes('credit'))
+      .reduce((sum, [, val]) => sum + val, 0);
     
     return { income, expense, balance, balances, incomeByCategory, expenseByCategory };
   }, [transactions, openingBalances]);
