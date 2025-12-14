@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
+import { useAuth } from '@/context/AuthContext';
 import { Icons } from '@/components/Icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,11 +8,13 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ACCOUNTS, DEFAULT_REMINDER_MSG } from '@/lib/constants';
 import { toast } from '@/hooks/use-toast';
+import { LogOut } from 'lucide-react';
 
 export function SettingsTab() {
   const {
     openingBalances,
     updateOpeningBalance,
+    setOpeningBalances,
     loans,
     addLoan,
     deleteLoan,
@@ -32,11 +35,21 @@ export function SettingsTab() {
     setReminderMsg
   } = useApp();
   
+  const { user, logout } = useAuth();
+  
   const [showLoanForm, setShowLoanForm] = useState(false);
   const [newLoan, setNewLoan] = useState({ name: '', total: '', emi: '' });
   const [showCardForm, setShowCardForm] = useState(false);
   const [newCard, setNewCard] = useState({ name: '', limit: '' });
   const [newCategory, setNewCategory] = useState('');
+  
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
   
   const handleAddLoan = () => {
     if (!newLoan.name || !newLoan.total) return;
@@ -91,7 +104,7 @@ export function SettingsTab() {
   };
   
   const handleExport = () => {
-    const data = JSON.stringify({ transactions, students, loans, creditCards }, null, 2);
+    const data = JSON.stringify({ transactions, students, loans, creditCards, openingBalances }, null, 2);
     const blob = new Blob([data], { type: 'application/json' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -100,51 +113,55 @@ export function SettingsTab() {
     toast({ title: 'Backup Downloaded' });
   };
   
-const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = (event) => {
-    try {
-      const raw = event.target?.result as string;
-      const data = JSON.parse(raw || '{}');
-
-      if (!data || typeof data !== 'object') {
-        throw new Error('Invalid backup structure');
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+  
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const raw = event.target?.result as string;
+        const data = JSON.parse(raw || '{}');
+  
+        if (!data || typeof data !== 'object') {
+          throw new Error('Invalid backup structure');
+        }
+  
+        const {
+          transactions: importedTransactions,
+          students: importedStudents,
+          loans: importedLoans,
+          creditCards: importedCreditCards,
+          openingBalances: importedOpeningBalances
+        } = data as any;
+  
+        if (Array.isArray(importedTransactions)) {
+          setTransactions(importedTransactions);
+        }
+        if (Array.isArray(importedStudents)) {
+          setStudents(importedStudents);
+        }
+        if (Array.isArray(importedLoans)) {
+          setLoans(importedLoans);
+        }
+        if (Array.isArray(importedCreditCards)) {
+          setCreditCards(importedCreditCards);
+        }
+        if (importedOpeningBalances && typeof importedOpeningBalances === 'object') {
+          setOpeningBalances(importedOpeningBalances);
+        }
+  
+        toast({ title: 'Import Complete', description: 'Backup has been imported.' });
+      } catch (error) {
+        console.error('Backup import failed', error);
+        toast({ title: 'Import Failed', description: 'Invalid file format.', variant: 'destructive' });
+      } finally {
+        // allow re-importing the same file if needed
+        e.target.value = '';
       }
-
-      const {
-        transactions: importedTransactions,
-        students: importedStudents,
-        loans: importedLoans,
-        creditCards: importedCreditCards
-      } = data as any;
-
-      if (Array.isArray(importedTransactions)) {
-        setTransactions(importedTransactions);
-      }
-      if (Array.isArray(importedStudents)) {
-        setStudents(importedStudents);
-      }
-      if (Array.isArray(importedLoans)) {
-        setLoans(importedLoans);
-      }
-      if (Array.isArray(importedCreditCards)) {
-        setCreditCards(importedCreditCards);
-      }
-
-      toast({ title: 'Import Complete', description: 'Backup has been imported.' });
-    } catch (error) {
-      console.error('Backup import failed', error);
-      toast({ title: 'Import Failed', description: 'Invalid file format.', variant: 'destructive' });
-    } finally {
-      // allow re-importing the same file if needed
-      e.target.value = '';
-    }
+    };
+    reader.readAsText(file);
   };
-  reader.readAsText(file);
-};
   
   const saveReminderMessage = () => {
     toast({ title: 'Template Saved', description: 'Reminder message template has been updated.' });
@@ -237,14 +254,35 @@ const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
         ) : (
           <div className="space-y-2">
             {creditCards.map(card => (
-              <div key={card.id} className="flex justify-between items-center p-4 bg-accent rounded-xl">
-                <div>
-                  <p className="font-bold text-foreground">{card.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Limit: ₹{card.limit.toLocaleString('en-IN')} | 
-                    Used: ₹{card.used.toLocaleString('en-IN')} | 
-                    Available: ₹{(card.limit - card.used).toLocaleString('en-IN')}
-                  </p>
+              <div key={card.id} className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 p-4 bg-accent rounded-xl">
+                <div className="flex-1">
+                  <p className="font-bold text-foreground mb-2">{card.name}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Limit</Label>
+                      <Input
+                        type="number"
+                        value={card.limit}
+                        onChange={(e) => updateCreditCard(card.id, { limit: parseFloat(e.target.value) || 0 })}
+                        placeholder="₹0"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Outstanding</Label>
+                      <Input
+                        type="number"
+                        value={card.used}
+                        onChange={(e) => updateCreditCard(card.id, { used: parseFloat(e.target.value) || 0 })}
+                        placeholder="₹0"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Available</Label>
+                      <p className="text-sm text-muted-foreground pt-2">
+                        ₹{(card.limit - card.used).toLocaleString('en-IN')}
+                      </p>
+                    </div>
+                  </div>
                 </div>
                 <Button
                   variant="ghost"
@@ -408,8 +446,8 @@ const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
           Backup & Restore
         </h3>
         
-        <div className="flex flex-wrap gap-4">
-          <Button onClick={handleExport} className="gradient-primary">
+        <div className="flex flex-wrap gap-4 mb-4">
+          <Button onClick={handleExport} className="gradient-primary text-white">
             <Icons.Download className="w-4 h-4 mr-2" />
             Export Backup
           </Button>
@@ -431,7 +469,31 @@ const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
             </Button>
           </div>
         </div>
+        <p className="text-xs text-muted-foreground">
+          Importing a backup will update your data here and also sync it to the cloud so you can continue on phone or laptop.
+        </p>
       </div>
+      
+      {/* Account / Logout */}
+      {user && (
+        <div className="bg-card p-6 rounded-2xl border border-border shadow-card">
+          <h3 className="font-bold text-lg text-foreground mb-4 flex items-center gap-2">
+            <LogOut className="w-5 h-5 text-destructive" />
+            Account
+          </h3>
+          <p className="text-sm text-muted-foreground mb-4 truncate">
+            Logged in as {user.email}
+          </p>
+          <Button
+            variant="outline"
+            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={handleLogout}
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Logout
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

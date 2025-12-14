@@ -38,6 +38,8 @@ export function AddTransactionTab() {
   const [selectedLoanId, setSelectedLoanId] = useState('');
   const [selectedCardId, setSelectedCardId] = useState('');
   
+  const selectedCard = creditCards.find(c => c.id === selectedCardId);
+  
   // Populate form when editing
   useEffect(() => {
     if (editingTransaction) {
